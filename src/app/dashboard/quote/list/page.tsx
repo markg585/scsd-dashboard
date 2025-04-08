@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth"; // ✅ Auth hook
+import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase"; // ✅ Auth + DB
+
+import Header from "@/components/layout/Header"; // ✅ Your existing header
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LucideLayoutGrid, LucideList } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { LucideLayoutGrid, LucideList } from "lucide-react";
 
 interface JobSite {
   id: string;
@@ -21,6 +24,7 @@ interface JobSite {
 }
 
 export default function JobSiteListPage() {
+  const [user] = useAuthState(auth); // ✅ Grab user
   const [jobSites, setJobSites] = useState<JobSite[]>([]);
   const [view, setView] = useState("table");
   const [search, setSearch] = useState("");
@@ -74,6 +78,8 @@ export default function JobSiteListPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4">
+      <Header userEmail={user?.email || "User"} /> {/* ✅ Works with your Header.tsx */}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Input
           placeholder="Search job sites..."

@@ -1,97 +1,133 @@
-"use client";
+'use client'
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 
-const jobSiteSchema = z.object({
+const TAG_OPTIONS = ['Urgent', 'Prep', 'Follow-up', 'High Priority', 'Customer Call']
+
+const jobsiteSchema = z.object({
   address: z.string().min(1),
-  city: z.string().min(1),
+  suburb: z.string().min(1),
   notes: z.string().optional(),
-  measurements: z.string().optional(),
-});
+  profiling: z.boolean(),
+  roadBase: z.boolean(),
+  bitumen: z.boolean(),
+  asphalt: z.boolean(),
+  tags: z.array(z.string()).optional(),
+})
 
-type JobSiteForm = z.infer<typeof jobSiteSchema>;
+type Jobsite = z.infer<typeof jobsiteSchema>
 
-type Lead = {
-  firstName: string;
-  lastName: string;
-};
-
-export default function NewJobSitePage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const leadId = searchParams.get("leadId");
-
-  const [error, setError] = useState<string | null>(null);
-  const [lead, setLead] = useState<Lead | null>(null);
+export default function NewJobsitePage() {
+  const params = useSearchParams()
+  const leadId = params.get('leadId')
+  const router = useRouter()
 
   const {
     register,
     handleSubmit,
-    reset,
+    watch,
+    setValue,
     formState: { errors },
-  } = useForm<JobSiteForm>({ resolver: zodResolver(jobSiteSchema) });
+  } = useForm<Jobsite>({ resolver: zodResolver(jobsiteSchema) })
 
-  const onSubmit = async (data: JobSiteForm) => {
-    if (!leadId) return setError("Missing lead ID");
-    try {
-      await addDoc(collection(db, "leads", leadId, "jobSites"), data);
-      router.push("/dashboard/leads");
-    } catch (err) {
-      setError("Failed to create job site.");
-      console.error(err);
-    }
-  };
+  const selectedTags = watch('tags') ?? []
 
-  useEffect(() => {
-    if (!leadId) return setError("Missing lead ID");
+  const onSubmit = async (data: Jobsite) => {
+    if (!leadId) return
 
-    const fetchLead = async () => {
-      const docSnap = await getDoc(doc(db, "leads", leadId));
-      if (docSnap.exists()) {
-        const data = docSnap.data() as Lead;
-        setLead(data);
-      }
-    };
+    await addDoc(collection(db, 'leads', leadId as string, 'jobsites'), {
+      ...data,
+      createdAt: serverTimestamp(),
+    })
 
-    fetchLead();
-  }, [leadId]);
+    toast.success('Job site added')
+    router.push(`/dashboard/leads/${leadId}`)
+  }
 
   return (
-    <div className="max-w-xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">New Job Site</h1>
-      {lead && <p className="text-muted-foreground">For lead: {lead.firstName} {lead.lastName}</p>}
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-
+    <div className="p-6 max-w-md mx-auto space-y-4">
+      <h2 className="text-xl font-semibold">Add Job Site</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <Input placeholder="Address" {...register("address")} />
-          {errors.address && <p className="text-sm text-red-500">{errors.address.message}</p>}
+        <Input placeholder="Address" {...register('address')} />
+        <Input placeholder="Suburb" {...register('suburb')} />
+        <Input placeholder="Notes (optional)" {...register('notes')} />
+
+        <div className="space-y-2">
+          <label className="flex items-center">
+            <input type="checkbox" {...register('profiling')} className="mr-2" />
+            Profiling
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" {...register('roadBase')} className="mr-2" />
+            Road Base
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" {...register('bitumen')} className="mr-2" />
+            Bitumen
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" {...register('asphalt')} className="mr-2" />
+            Asphalt
+          </label>
         </div>
 
-        <div>
-          <Input placeholder="City" {...register("city")} />
-          {errors.city && <p className="text-sm text-red-500">{errors.city.message}</p>}
-        </div>
-
-        <div>
-          <Textarea placeholder="Notes (optional)" {...register("notes")} />
-        </div>
-
-        <div>
-          <Textarea placeholder="Measurements (optional)" {...register("measurements")} />
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Tags</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start">
+                {selectedTags.length > 0 ? selectedTags.join(', ') : 'Select tags'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search tags..." />
+                <CommandList>
+                  {TAG_OPTIONS.map((tag) => (
+                    <CommandItem key={tag} className="p-2">
+                      <label className="flex items-center gap-2 w-full cursor-pointer">
+                        <Checkbox
+                          checked={selectedTags.includes(tag)}
+                          onCheckedChange={() => {
+                            const updated = selectedTags.includes(tag)
+                              ? selectedTags.filter((t) => t !== tag)
+                              : [...selectedTags, tag]
+                            setValue('tags', updated, { shouldValidate: true })
+                          }}
+                        />
+                        <span>{tag}</span>
+                      </label>
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <Button type="submit" className="w-full">Save Job Site</Button>
       </form>
     </div>
-  );
+  )
 }

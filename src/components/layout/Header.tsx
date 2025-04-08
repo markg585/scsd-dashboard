@@ -1,36 +1,62 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { useRouter } from 'next/navigation'
+
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import Link from 'next/link'
+import clsx from 'clsx'
 
-export default function Header({ userEmail }: { userEmail: string }) {
-  const router = useRouter()
+interface HeaderProps {
+  userEmail: string
+}
 
-  const handleLogout = async () => {
-    await signOut(auth)
-    toast.success('Logged out')
-    router.replace('/login')
-  }
+export default function Header({ userEmail }: HeaderProps) {
+  const pathname = usePathname()
+
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/dashboard/leads', label: 'Leads' },
+    { href: '/dashboard/jobsite/list', label: 'Job Sites' }, // ✅ Added
+    { href: '/quotes', label: 'Quotes' },
+    { href: '/schedule', label: 'Schedule' },
+  ]
 
   return (
-    <header className="w-full bg-white dark:bg-gray-900 border-b shadow-sm px-4 sm:px-6 py-3 flex justify-between items-center">
-      <div className="text-xl font-bold text-primary">SCSD Dashboard</div>
+    <header className="w-full border-b bg-background">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* App Title */}
+        <div className="text-lg font-semibold text-primary">
+          <Link href="/dashboard">SCSD Dashboard</Link>
+        </div>
 
-      <nav className="hidden md:flex items-center space-x-4">
-        <Link href="/dashboard" className="text-sm font-medium hover:underline">Home</Link>
-        <Link href="/dashboard/leads" className="text-sm font-medium hover:underline">Leads</Link>
-        <Link href="/dashboard/quotes" className="text-sm font-medium hover:underline">Quotes</Link>
-        <Link href="/dashboard/invoices" className="text-sm font-medium hover:underline">Invoices</Link>
-        <Link href="/dashboard/schedule" className="text-sm font-medium hover:underline">Schedule</Link>
-        <span className="text-muted-foreground text-sm">{userEmail}</span>
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          Logout
-        </Button>
-      </nav>
+        {/* Top Nav */}
+        <nav className="flex flex-wrap gap-4 text-sm">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={clsx(
+                'transition',
+                pathname.startsWith(item.href)
+                  ? 'text-primary font-medium'
+                  : 'text-muted-foreground hover:text-primary'
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* User Info */}
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground hidden sm:inline">{userEmail}</span>
+          <Button size="sm" variant="outline" onClick={() => signOut(auth)}>
+            Sign out
+          </Button>
+        </div>
+      </div>
     </header>
   )
 }
